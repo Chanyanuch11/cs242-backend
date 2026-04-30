@@ -37,17 +37,21 @@ class Recommender:
         if user_lat < -90 or user_lat > 90 or user_lng < -180 or user_lng > 180:
             raise InvalidDataError("Invalid GPS coordinates.")
 
+        from sqlalchemy import extract
+        start_hour = start_time.hour
+        end_hour = end_time.hour
+
         results = self._db.query(Canteen, CrowdRecord).\
             join(CrowdRecord, Canteen.canteen_id == CrowdRecord.canteen_id).\
-            filter(CrowdRecord.timestamp >= start_time).\
-            filter(CrowdRecord.timestamp <= end_time).all()
+            filter(extract('hour', CrowdRecord.timestamp) >= start_hour).\
+            filter(extract('hour', CrowdRecord.timestamp) <= end_hour).all()
 
         if not results:
-            return {"gemini_summary": "ไม่พบข้อมูล", "results": []}
+            return {"gemini_summary": "ไม่พบข้อมูลในช่วงเวลานี้", "results": []}
 
+        past_hour = (start_hour - 1) % 24
         past_results = self._db.query(CrowdRecord).\
-            filter(CrowdRecord.timestamp >= start_time - timedelta(hours=1)).\
-            filter(CrowdRecord.timestamp <= end_time - timedelta(hours=1)).all()
+            filter(extract('hour', CrowdRecord.timestamp) == past_hour).all()
         
         past_map = {p.canteen_id: p.people_count for p in past_results}
 
