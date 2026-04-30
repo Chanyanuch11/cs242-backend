@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "Canteen System API"
     DEBUG: bool = False
 
+    # AI Settings
+    GEMINI_API_KEY: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
