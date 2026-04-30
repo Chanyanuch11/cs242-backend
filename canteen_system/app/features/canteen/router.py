@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from ...core.database import get_db
 from .models import Canteen
-from .service import CanteenManager
+from .service import Recommender
 from ...core.exceptions import CanteenAppError
 
 router = APIRouter()
@@ -17,26 +17,24 @@ def get_recommendations(
     db: Session = Depends(get_db)
 ):
     try:
-        # Convert strings to datetime objects
         dt_start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
         dt_end = datetime.strptime(end_time, "%Y-%m-%d %H:%M")
         
-        # 8.1: Initialize System Controller/Manager
-        manager = CanteenManager(db)
+        # 8.1: Initialize System Controller (UML: Recommender)
+        recommender = Recommender(db)
         
-        return manager.get_recommendations_in_range(dt_start, dt_end, lat, lng)
+        # UML Method Match
+        return recommender.recommendCanteen(dt_start, dt_end, lat, lng)
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except CanteenAppError as e:
-        # 8.3: Custom exception handling
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Final catch-all for unknown errors
-        raise HTTPException(status_code=500, detail="An internal server error occurred.")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/")
+@router.get("/all")
 def get_all_canteens(db: Session = Depends(get_db)):
-    # 8.1: Manager handling simple flow
-    manager = CanteenManager(db)
+    """UML: Simple flow to get all data"""
     return db.query(Canteen).all()
