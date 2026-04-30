@@ -1,52 +1,42 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional, List
 from datetime import datetime
+from ...core.database import get_db
+from .models import Canteen
+from .service import CanteenManager
+from ...core.exceptions import CanteenAppError
 
-from ...core.database import SessionLocal
-from .service import CanteenService
-
-router = APIRouter(prefix="/canteens", tags=["Canteens"])
-service = CanteenService()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@router.get("/all")
-async def get_all(db: Session = Depends(get_db)):
-    return service.get_all(db)
+router = APIRouter()
 
 @router.get("/recommend")
-async def recommend(
-    lat: float,
-    lng: float,
-    start_time: Optional[str] = Query(None, description="Format: YYYY-MM-DD HH:MM"),
-    end_time: Optional[str] = Query(None, description="Format: YYYY-MM-DD HH:MM"),
+def get_recommendations(
+    lat: float = Query(..., description="Latitude of user"),
+    lng: float = Query(..., description="Longitude of user"),
+    start_time: str = Query("2026-01-01 12:00", description="Start time (YYYY-MM-DD HH:MM)"),
+    end_time: str = Query("2026-01-01 13:00", description="End time (YYYY-MM-DD HH:MM)"),
     db: Session = Depends(get_db)
 ):
-    """
-    GET ค้นหาโรงอาหารที่ว่างที่สุดในช่วงเวลา [start_time - end_time]
-    และเรียงตามความว่างเฉลี่ย + ระยะทาง
-    """
-    # จัดการเรื่องเวลา
     try:
-        if start_time and end_time:
-            t_start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
-            t_end = datetime.strptime(end_time, "%Y-%m-%d %H:%M")
-        else:
-            # ถ้าไม่ส่งมา ให้ใช้ช่วงเวลาปัจจุบัน +/- 30 นาที
-            now = datetime(2026, 1, 1, 12, 0) # ตัวอย่างเวลาใน data
-            t_start = now - timedelta(minutes=30)
-            t_end = now + timedelta(minutes=30)
-            
-        if t_start > t_end:
-            raise HTTPException(status_code=400, detail="start_time must be before end_time")
-            
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid time format. Use YYYY-MM-DD HH:MM")
+        # Convert strings to datetime objects
+        dt_start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
+        dt_end = datetime.strptime(end_time, "%Y-%m-%d %H:%M")
+        
+        # 8.1: Initialize System Controller/Manager
+        manager = CanteenManager(db)
+        
+        return manager.get_recommendations_in_range(dt_start, dt_end, lat, lng)
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    except CanteenAppError as e:
+        # 8.3: Custom exception handling
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Final catch-all for unknown errors
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
-    return service.get_recommendations_in_range(db, t_start, t_end, lat, lng)
+@router.get("/")
+def get_all_canteens(db: Session = Depends(get_db)):
+    # 8.1: Manager handling simple flow
+    manager = CanteenManager(db)
+    return db.query(Canteen).all()

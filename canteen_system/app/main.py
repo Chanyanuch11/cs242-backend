@@ -10,7 +10,7 @@ app = FastAPI(
 )
 
 # Include Routers
-app.include_router(canteen_router)
+app.include_router(canteen_router, prefix="/canteens", tags=["Canteens"])
 
 @app.get("/")
 def health_check():
