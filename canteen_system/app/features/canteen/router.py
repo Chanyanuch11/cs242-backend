@@ -36,7 +36,6 @@ def get_recommendations(
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @router.get("/")
-@router.get("/all")
 def get_all_canteens(db: Session = Depends(get_db)):
     # 8.1: Manager handling simple flow
     manager = CanteenManager(db)
